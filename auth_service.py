@@ -15,6 +15,9 @@ def timestamp():
 
 
 def handle_request(message):
+    if message.upper() == "PING":
+        return "ACK"
+
     # Expected format: LOGIN <username> <password>
     parts = message.strip().split()
 
