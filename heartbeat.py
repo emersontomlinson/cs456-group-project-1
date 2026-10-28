@@ -18,7 +18,7 @@ def log(line):
     print(line)
     with open("heartbeat.log" , "a") as f:
         f.write(line + "\n")
-        
+
 def ping_ok():
     """One heartbeat attempt. Returns True if the service answers ACK."""
     try:
@@ -48,33 +48,21 @@ def main():
     print(f"[{timestamp()}] Heartbeat monitor started")
 
     while True:
-        try:
-            with socket.create_connection((HOST, PORT), timeout=TIMEOUT) as s:
-                s.settimeout(TIMEOUT)
-                s.sendall(b"PING\n")
-                response = s.recv(1024).decode().strip()
-
-                if response == "ACK":
-                    print(f"[{timestamp()}] Heartbeat OK")
-                    missed = 0
-                    failed = False
-                else:
-                    missed += 1
-
-        except (OSError, TimeoutError):
+        if ping_ok():
+            print(f"[{timestamp()}] Heartbeat OK")
+            missed = 0
+            failed = False
+        else:
             missed += 1
 
         if missed > 0:
             print(f"[{timestamp()}] Missed heartbeat: {missed}/{MAX_MISSED}")
 
         if missed >= MAX_MISSED and not failed:
-            alert = f"[{timestamp()}] ALERT: Authentication service is DOWN!"
-            print(alert)
-
-            with open("heartbeat.log", "a") as log:
-                log.write(alert + "\n")
-
+            log(f"[{timestamp()}] [Crash Detected]")
+            trigger_failover()
             failed = True
+            missed = 0
 
         time.sleep(INTERVAL)
 
