@@ -37,7 +37,7 @@ def handle_request(message, sessions):
     return f"TOKEN {token}"
 
 
-def main():
+def main(enable_crash=True):
     # Load any saved state so a restarted/backup node keeps old logins
     sessions = checkpoint.load()["sessions"]
 
@@ -62,7 +62,7 @@ def main():
                 print(f"[{timestamp()}] Request from {address[0]}: {message}")
 
                 # Simulates random crash
-                if random.random() < CRASH_CHANCE:
+                if enable_crash and random.random() < CRASH_CHANCE:
                     print(f"[{timestamp()}] Simulated service crash triggered.", flush=True)
                     os._exit(1)
 
