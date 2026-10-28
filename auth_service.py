@@ -3,6 +3,8 @@ import socket
 import os
 from datetime import datetime
 
+import checkpoint
+
 HOST = "127.0.0.1"
 PORT = 5050
 
@@ -14,22 +16,31 @@ def timestamp():
     return datetime.now().strftime("%H:%M:%S")
 
 
-def handle_request(message):
+def handle_request(message, sessions):
     if message.upper() == "PING":
         return "ACK"
 
     # Expected format: LOGIN <username> <password>
     parts = message.strip().split()
 
+    # WHOAMI <token> checks a token from before a crash still works
+    if len(parts) == 2 and parts[0].upper() == "WHOAMI":
+        return sessions.get(parts[1], "ERROR unknown token")
+
     if len(parts) != 3 or parts[0].upper() != "LOGIN":
         return "ERROR Use: LOGIN <username> <password>"
 
     # Placeholder prototype that returns a fake token
     username = parts[1]
-    return f"TOKEN demo-token-for-{username}"
+    token = f"demo-token-for-{username}"
+    sessions[token] = username
+    return f"TOKEN {token}"
 
 
 def main():
+    # Load any saved state so a restarted/backup node keeps old logins
+    sessions = checkpoint.load()["sessions"]
+
     print(f"[{timestamp()}] Authentication service starting on {HOST}:{PORT}")
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
@@ -55,7 +66,12 @@ def main():
                     print(f"[{timestamp()}] Simulated service crash triggered.", flush=True)
                     os._exit(1)
 
-                response = handle_request(message)
+                response = handle_request(message, sessions)
+
+                # Save state after a login so it survives a crash
+                if response.startswith("TOKEN"):
+                    checkpoint.save({"sessions": sessions})
+
                 connection.sendall((response + "\n").encode("utf-8"))
                 print(f"[{timestamp()}] Sent: {response}")
 
