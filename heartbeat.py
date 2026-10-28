@@ -1,4 +1,4 @@
-
+import subprocess
 import socket
 import time
 from datetime import datetime
@@ -14,6 +14,32 @@ MAX_MISSED = 3
 def timestamp():
     return datetime.now().strftime("%H:%M:%S")
 
+def log(line):
+    print(line)
+    with open("heartbeat.log" , "a") as f:
+        f.write(line + "\n")
+        
+def ping_ok():
+    """One heartbeat attempt. Returns True if the service answers ACK."""
+    try:
+        with socket.create_connection((HOST, PORT), timeout=TIMEOUT) as s:
+            s.settimeout(TIMEOUT)
+            s.sendall(b"PING\n")
+            return s.recv(1024).decode().strip() == "ACK"
+    except (OSError, TimeoutError):
+        return False
+
+def trigger_failover():
+    log(f"[{timestamp()}] [Failover Triggered]")
+
+    subprocess.Popen(["python3", "backup_service.py"])
+
+    for _ in range(20): #10 second max wait at 0.5s steps
+        if ping_ok():
+            log(f"[{timestamp()}] [Service Restored]")
+            return
+        time.sleep(0.5)
+    log(f"[{timestamp()}] [Failover FAILED: standby did not come up]")
 
 def main():
     missed = 0
